@@ -1,5 +1,6 @@
 """
 RAG 链：检索 → 构建 Prompt → LLM 流式生成。
+支持多轮对话历史注入。
 """
 
 import json
@@ -20,6 +21,8 @@ USER_PROMPT_TEMPLATE = """参考资料：
 
 {context}
 
+{history}
+
 ---
 
 问题：{query}
@@ -27,8 +30,15 @@ USER_PROMPT_TEMPLATE = """参考资料：
 请基于以上参考资料回答问题。"""
 
 
-async def rag_query(query: str, top_k: int = 5) -> AsyncIterator[str]:
-    """执行 RAG 查询，流式返回 token。"""
+async def rag_query(
+    query: str,
+    top_k: int = 5,
+    history: list[dict] | None = None,
+) -> AsyncIterator[str]:
+    """执行 RAG 查询，流式返回 SSE 事件。
+
+    history: [{"role": "user/assistant", "content": "..."}]
+    """
     # 检索
     results = await hybrid_search(query, top_k=top_k)
 
@@ -50,7 +60,21 @@ async def rag_query(query: str, top_k: int = 5) -> AsyncIterator[str]:
         })
 
     context = "\n\n---\n\n".join(context_parts) if context_parts else "未找到相关文档。"
-    user_prompt = USER_PROMPT_TEMPLATE.format(context=context, query=query)
+
+    # 构建历史对话文本
+    history_text = ""
+    if history:
+        history_lines = ["\n## 历史对话\n"]
+        for h in history:
+            role_label = "用户" if h["role"] == "user" else "助手"
+            history_lines.append(f"**{role_label}**：{h['content']}")
+        history_text = "\n".join(history_lines)
+
+    user_prompt = USER_PROMPT_TEMPLATE.format(
+        context=context,
+        history=history_text,
+        query=query,
+    )
 
     # SSE 事件：先发 sources
     yield f"data: {json.dumps({'type': 'sources', 'documents': sources}, ensure_ascii=False)}\n\n"

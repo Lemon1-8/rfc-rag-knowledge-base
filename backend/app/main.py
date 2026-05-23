@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.chat import router as chat_router
 from app.api.search import router as search_router
 from app.api.documents import router as documents_router
+from app.api.conversations import router as conversations_router
 
 app = FastAPI(title="RFC RAG Knowledge Base", version="0.1.0")
 
@@ -18,6 +19,7 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(search_router)
 app.include_router(documents_router)
+app.include_router(conversations_router)
 
 
 @app.get("/api/health")

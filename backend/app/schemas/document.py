@@ -11,6 +11,20 @@ class DocumentInfo(BaseModel):
     status: str = "unknown"
 
 
+class DocumentChunk(BaseModel):
+    chunk_id: str
+    section_path: str
+    content: str
+
+
+class DocumentDetail(BaseModel):
+    id: str
+    title: str
+    source_url: str
+    chunks: list[DocumentChunk]
+    chunk_count: int
+
+
 class DocumentListResponse(BaseModel):
     documents: list[DocumentInfo]
     total: int

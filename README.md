@@ -12,13 +12,22 @@
 | Reranker | BGE-Reranker-v2-m3（TEI 服务） |
 | 向量库 | Qdrant（Docker） |
 | 编排框架 | LangChain（ChatOpenAI + LCEL） |
-| 前端 | React + TypeScript + Vite |
+| 持久化 | SQLite（对话历史） |
+| 前端 | React 19 + TypeScript + Vite |
+
+### 功能特性
+
+- **RAG 问答**：Small-to-Big 双层检索 + Dense + Reranker，流式 SSE 输出
+- **多轮对话**：对话历史持久化，支持切换、删除、上下文感知
+- **文档管理**：卡片式浏览、全文查看、删除
+- **检索调试**：原始检索结果查看，含相关度评分
+- **SaaS 风格 UI**：深色主题，对话侧边栏，Toast 通知，加载骨架屏
 
 ### 检索架构：Small-to-Big 两层
 
 ```
 query → Embedding → Qdrant Dense Top-20 → 去重 parent → 取 big chunk
-→ Reranker Top-5 → Prompt → LLM 流式生成
+→ Reranker Top-5 → Prompt + 对话历史 → LLM 流式生成
 ```
 
 - **小 chunk**（≤500 字符）：带 1024 维向量，做精确语义匹配
@@ -40,7 +49,7 @@ query → Embedding → Qdrant Dense Top-20 → 去重 parent → 取 big chunk
 docker run -d -p 6333:6333 -v ./data/qdrant_storage:/qdrant/storage qdrant/qdrant
 
 # 2. 配置 API Key
-cp .env.example backend/.env
+cp backend/.env.example backend/.env
 # 编辑 backend/.env，填入 DEEPSEEK_API_KEY
 
 # 3. 安装后端依赖
@@ -50,26 +59,40 @@ cd backend && pip install -r requirements.txt
 python -m scripts.run_pipeline --limit 50
 
 # 5. 启动后端
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8001
 
 # 6. 启动前端（新终端）
 cd frontend && npm install && npm run dev
 ```
 
-浏览器打开 `http://localhost:5173` 即可使用聊天界面。
+浏览器打开 `http://localhost:5173` 即可使用。
+
+### 重建索引
+
+```bash
+# 清空 Qdrant 后重建（使用已有 processed/*.md）
+curl -X DELETE http://localhost:6333/collections/rfc_chunks_small
+curl -X DELETE http://localhost:6333/collections/rfc_chunks_big
+cd backend && python -m scripts.run_pipeline --skip-crawl
+```
 
 ## API
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/api/chat` | SSE 流式对话，`{"query":"...","top_k":5}` |
-| GET | `/api/search?q=&top_k=` | 检索调试 |
+| POST | `/api/chat` | SSE 流式对话，`{"query","conversation_id?","top_k"}` |
+| GET | `/api/search?q=&top_k=` | 检索调试，返回结果含 score |
 | GET | `/api/documents` | 文档列表 |
+| GET | `/api/documents/{id}` | 文档详情，返回所有章节完整内容 |
 | POST | `/api/documents/crawl` | 触发爬取 |
-| DELETE | `/api/documents/{id}` | 删除文档 |
+| DELETE | `/api/documents/{id}` | 删除文档及其所有 chunk |
+| GET | `/api/conversations` | 对话列表 |
+| POST | `/api/conversations` | 创建新对话 |
+| GET | `/api/conversations/{id}` | 对话详情（含历史消息） |
+| DELETE | `/api/conversations/{id}` | 删除对话 |
 | GET | `/api/health` | 健康检查 |
 
-SSE 事件顺序：`sources → token* → done`
+SSE 事件顺序：`sources → token* → conversation_id → done`
 
 ## 项目结构
 
@@ -78,20 +101,24 @@ SSE 事件顺序：`sources → token* → done`
 │   ├── app/
 │   │   ├── main.py              # FastAPI 入口
 │   │   ├── config.py            # pydantic-settings 配置
-│   │   ├── api/                 # chat, search, documents 路由
-│   │   ├── core/                # embedding, reranker, llm, vector_store
+│   │   ├── api/                 # chat, search, documents, conversations 路由
+│   │   ├── core/                # embedding, reranker, llm, vector_store, database
 │   │   ├── pipeline/            # crawler, cleaner, chunker, indexer
 │   │   ├── retrieval/           # hybrid_search, rag_chain
-│   │   ├── schemas/             # Pydantic 模型
-│   │   └── services/
+│   │   └── schemas/             # Pydantic 模型
 │   ├── scripts/run_pipeline.py  # 一键全量管道
 │   └── requirements.txt
 ├── frontend/
 │   └── src/
-│       ├── api/client.ts        # SSE 客户端
-│       ├── hooks/useChat.ts     # 聊天状态管理
+│       ├── App.tsx              # 主布局 + 对话列表 + useChat 状态管理
+│       ├── App.css              # SaaS 风格全局样式
+│       ├── api/client.ts        # 后端 API + SSE 客户端
+│       ├── hooks/useChat.ts     # 多轮对话状态 Hook
 │       └── components/          # Chat, DocumentManager, Search
 └── data/                        # 运行时数据（不入库）
+    ├── qdrant_storage/
+    ├── conversations.db         # 对话 SQLite
+    └── processed/               # 清洗后的 Markdown
 ```
 
 ## 配置

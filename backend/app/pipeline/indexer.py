@@ -93,7 +93,8 @@ def _parse_md_meta(markdown_text: str, rfc_id: str) -> tuple[str, str, list[dict
         if line.startswith("# ") and not title:
             title = line[2:].strip()
         if line.startswith("> 来源: ") and not url:
-            url = line[4:].strip()
+            # line 格式: "> 来源: https://..."，前缀 7 个字符
+            url = line[6:].strip()
         # 检测 RFC 编号章节标题（如 "1. Introduction"）
         m = re.match(r"^(\d+(?:\.\d+)*)\s+\.?\s*(.+)", line)
         if m:

@@ -12,8 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Qdrant（Docker，仅数据库）
 docker run -d -p 6333:6333 -v ./data/qdrant_storage:/qdrant/storage qdrant/qdrant
 
-# 后端（裸跑，无容器化）
-cd backend && uvicorn app.main:app --reload --port 8000
+# 后端
+cd backend && uvicorn app.main:app --reload --port 8001
 
 # 前端
 cd frontend && npm run dev
@@ -23,7 +23,14 @@ cd backend && python -m scripts.run_pipeline --limit 50
 
 # 只做索引（跳过爬取，使用已有 processed/*.md）
 cd backend && python -m scripts.run_pipeline --skip-crawl
+
+# 清空 Qdrant 后重建索引
+curl -X DELETE http://localhost:6333/collections/rfc_chunks_small
+curl -X DELETE http://localhost:6333/collections/rfc_chunks_big
+cd backend && python -m scripts.run_pipeline --skip-crawl
 ```
+
+后端端口当前使用 **8001**（8000 被僵尸 Python 进程占用，`--reload` 自动重载不可靠时需手动 `taskkill` 杀进程后重启）。
 
 ## 架构
 
@@ -45,6 +52,13 @@ cd backend && python -m scripts.run_pipeline --skip-crawl
 
 `query → Embedding(TEI:8888) → Qdrant Dense Top-20 → 去重 parent → fetch big chunks → Reranker(TEI:8889) Top-5 → Prompt → DeepSeek SSE 流式`
 
+### 多轮对话
+
+- 对话和消息持久化在 SQLite（`data/conversations.db`），`backend/app/core/database.py`
+- 新对话自动创建，标题取首条问题前 40 字
+- 每次请求将历史消息 `[{role, content}]` 注入 Prompt 的"历史对话"区域
+- `POST /api/chat` 接受可选 `conversation_id`，为空则自动建新对话
+
 ### 关键模块
 
 | 模块 | 路径 | 职责 |
@@ -57,18 +71,35 @@ cd backend && python -m scripts.run_pipeline --skip-crawl
 | Reranker | `backend/app/core/reranker.py` | TEI HTTP 客户端 → localhost:8889 `/rerank` |
 | LLM | `backend/app/core/llm.py` | LangChain ChatOpenAI + DeepSeek，SSE 流式 |
 | 向量库 | `backend/app/core/vector_store.py` | Qdrant 1.18 `query_points` API |
+| 数据库 | `backend/app/core/database.py` | SQLite，conversations + messages 表 |
 | 混合检索 | `backend/app/retrieval/hybrid_search.py` | Dense + Reranker |
-| RAG 链 | `backend/app/retrieval/rag_chain.py` | 检索→Prompt→LLM SSE 编排 |
+| RAG 链 | `backend/app/retrieval/rag_chain.py` | 检索→Prompt→LLM SSE 编排，支持 history 参数 |
+
+### 前端状态管理
+
+`useChat` hook 提升到 `App.tsx` 层（非 ChatWindow 内），保证切换 tab 时对话状态不丢失。ChatWindow 为受控组件，通过 props 接收 `messages`、`isLoading`、`conversationId`、`onSend`、`onClear`。
 
 ### API 路由
 
-- `POST /api/chat` — SSE 流式对话（`text/event-stream`）
-- `GET /api/search?q=&top_k=` — 检索调试
-- `GET /api/documents` — 文档列表
-- `POST /api/documents/crawl` — 触发爬取
-- `DELETE /api/documents/{id}` — 删除文档
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/chat` | SSE 流式对话，`{"query","conversation_id?","top_k"}` |
+| GET | `/api/search?q=&top_k=` | 检索调试 |
+| GET | `/api/documents` | 文档列表（元数据聚合） |
+| GET | `/api/documents/{id}` | 文档详情（所有 chunk 完整内容） |
+| POST | `/api/documents/crawl` | 触发爬取 |
+| DELETE | `/api/documents/{id}` | 删除文档 |
+| GET | `/api/conversations` | 对话列表 |
+| POST | `/api/conversations` | 创建对话 |
+| GET | `/api/conversations/{id}` | 对话详情（含消息列表） |
+| DELETE | `/api/conversations/{id}` | 删除对话 |
 
-SSE 事件顺序：`sources → token* → done`，错误时发 `error`。
+SSE 事件顺序：`sources → token* → conversation_id → done`，错误时发 `error`。
+
+## 已知注意事项
+
+- **`_parse_md_meta` URL 解析**：`indexer.py:96` 的 `line[6:]` 偏移量对应 Markdown `> 来源: https://...` 的 7 字符前缀（`>` + 空格 + `来` + `源` + `:` + 空格 = 6 索引才到 URL）。之前 `line[4:]` 导致 URL 残留 `: ` 前缀，已修复。重新跑管道后新数据正确，旧脏数据由前端 `cleanUrl()` 兜底。
+- **Qdrant chunk_id 可能重复**：多次跑管道未清库会导致同 `chunk_id` 多次 upsert，前端用 `` `${chunk_id}_${index}` `` 做 React key 避免重复 key 警告。
 
 ## 配置
 

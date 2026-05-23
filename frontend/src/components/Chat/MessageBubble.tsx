@@ -27,9 +27,15 @@ export default function MessageBubble({ message }: Props) {
               <ul>
                 {message.sources.map((s, i) => (
                   <li key={i}>
-                    <a href={s.url} target="_blank" rel="noopener noreferrer">
-                      [{i + 1}] {s.title} — {s.section}
-                    </a>
+                    {s.url ? (
+                      <a href={s.url} target="_blank" rel="noopener noreferrer">
+                        [{i + 1}] {s.title} — {s.section}
+                      </a>
+                    ) : (
+                      <span>
+                        [{i + 1}] {s.title} — {s.section}
+                      </span>
+                    )}
                     <span className="score">
                       {s.score.toFixed(2)}
                     </span>
