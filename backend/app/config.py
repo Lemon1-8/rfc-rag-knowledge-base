@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com/v1"
     deepseek_model: str = "deepseek-chat"
 
+    # LLM 参数
+    llm_temperature: float = 0.15
+    llm_max_tokens: int = 4096
+
     # TEI
     tei_embedding_url: str = "http://localhost:8888"
     tei_reranker_url: str = "http://localhost:8889"
@@ -14,6 +18,11 @@ class Settings(BaseSettings):
     # Qdrant
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str = ""
+
+    # 检索参数
+    reranker_score_threshold: float = 0.15
+    dense_top: int = 30
+    sparse_top: int = 30
 
     # App
     app_host: str = "0.0.0.0"

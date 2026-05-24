@@ -15,8 +15,8 @@ def build_llm(streaming: bool = True) -> ChatOpenAI:
         model=settings.deepseek_model,
         openai_api_key=settings.deepseek_api_key,
         base_url=settings.deepseek_base_url,
-        temperature=0.7,
-        max_tokens=2048,
+        temperature=settings.llm_temperature,
+        max_tokens=settings.llm_max_tokens,
         streaming=streaming,
     )
 

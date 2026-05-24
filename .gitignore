@@ -23,6 +23,7 @@ Thumbs.db
 # Data
 data/
 backend/data/
+backend/eval/results/
 
 # Node
 node_modules/

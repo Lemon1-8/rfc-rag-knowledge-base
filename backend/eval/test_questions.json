@@ -1,0 +1,42 @@
+[
+  {
+    "question": "HTTP 状态码分为哪几类？每类代表什么含义？",
+    "ground_truth_answer": "HTTP 状态码是三位数字，由服务器返回，表示对客户端请求的处理结果。分为五类：1xx 信息性（请求已收到，继续处理），2xx 成功（请求已理解并接受），3xx 重定向（需要进一步操作），4xx 客户端错误（请求语法错误或无法满足），5xx 服务器错误（服务器无法完成有效请求）。常见状态码包括 200 OK、301 Moved Permanently、404 Not Found、500 Internal Server Error 等。"
+  },
+  {
+    "question": "TCP 三次握手的过程是怎样的？",
+    "ground_truth_answer": "TCP 三次握手建立连接的过程：(1) 客户端发送 SYN 报文，携带初始序列号 ISN(c)；(2) 服务器回复 SYN-ACK 报文，包含自己的初始序列号 ISN(s) 并确认 ISN(c)+1；(3) 客户端发送 ACK 确认 ISN(s)+1。完成三次握手后，双方确认了彼此的序列号，连接建立成功，可以开始传输数据。"
+  },
+  {
+    "question": "DNS 如何将域名解析为 IP 地址？",
+    "ground_truth_answer": "DNS 解析从客户端（stub resolver）查询递归 DNS 服务器开始。如果递归服务器没有缓存结果，它会先查询根域名服务器，获得 TLD 服务器的引用；然后查询 TLD 服务器，获得权威域名服务器的引用；最后查询权威服务器，获取资源记录（A 记录为 IPv4，AAAA 记录为 IPv6）。每个级别的结果根据 TTL 缓存，最终结果返回给客户端。"
+  },
+  {
+    "question": "TLS 1.3 握手的简化流程是怎样的？",
+    "ground_truth_answer": "TLS 1.3 握手简化为 1-RTT：(1) 客户端发送 ClientHello，包含支持的密码套件、密钥分享（如 DH 公钥）和可选的 PSK 扩展；(2) 服务器回复 ServerHello（选定密码套件和密钥分享），紧接着发送 EncryptedExtensions、Certificate、CertificateVerify 和 Finished——均在握手流量密钥保护下加密；(3) 客户端验证证书后发送 Finished。之后双方可开始发送应用数据。TLS 1.3 还支持 0-RTT 模式用于 PSK 恢复会话。"
+  },
+  {
+    "question": "IPv6 地址的格式和结构是怎样的？",
+    "ground_truth_answer": "IPv6 地址是 128 位标识符，通常写成 8 组 4 位十六进制数字，用冒号分隔，如 2001:0db8:0000:0000:0000:ff00:0042:8329。每组前导零可省略，连续多组零可用双冒号(::)压缩（但只能用一次）。IPv6 有三种地址类型：单播（标识单一接口）、组播（标识一组接口）、任播（标识一组接口中最近的一个）。特殊地址包括 ::1 回环地址和 fe80::/10 链路本地地址。"
+  },
+  {
+    "question": "SMTP 如何将邮件从发件人传送到收件人？",
+    "ground_truth_answer": "SMTP 采用存储转发模型：(1) 发件人的邮件用户代理（MUA）通过 SMTP 连接邮件传输代理（MTA），端口 25 或 587；(2) MUA 发送 EHLO、MAIL FROM、RCPT TO、DATA 命令传输信封和邮件内容；(3) 发件人 MTA 查询收件人域名的 MX 记录，连接到优先级最高的收件人 MTA；(4) 如果收件人 MTA 不可达，邮件排队并指数退避重试；(5) 收件人通过 POP3 或 IMAP 从 MTA 取回邮件。"
+  },
+  {
+    "question": "WebSocket 协议如何从 HTTP 升级建立连接？",
+    "ground_truth_answer": "WebSocket（RFC 6455）提供基于单条 TCP 连接的全双工通信。以 HTTP Upgrade 请求开始：客户端发送 HTTP GET，带有 Upgrade: websocket、Connection: Upgrade 头，以及 Sec-WebSocket-Key（base64 编码的 16 字节随机值）。服务器回复 HTTP 101 Switching Protocols，包含 Sec-WebSocket-Accept（对 Key 拼接固定 GUID 后做 SHA-1 哈希再 base64 编码）。握手完成后，连接从 HTTP 切换到 WebSocket 帧消息协议，使用 opcode 区分文本、二进制、ping、pong 和关闭帧。"
+  },
+  {
+    "question": "OAuth 2.0 授权码模式的工作流程是怎样的？",
+    "ground_truth_answer": "OAuth 2.0 授权码模式（RFC 6749）涉及四方：资源所有者（用户）、客户端（应用）、授权服务器、资源服务器。流程：(1) 客户端将用户重定向到授权服务器，带上 client_id、redirect_uri、scope 和 state 参数；(2) 用户认证并授权；(3) 授权服务器通过重定向返回授权码；(4) 客户端用授权码向令牌端点 POST 换取访问令牌（及可选的刷新令牌），需提供客户端凭据；(5) 客户端使用访问令牌（Bearer token）访问受保护资源。此模式将访问令牌保留在服务器端，推荐用于服务端应用。"
+  },
+  {
+    "question": "JSON 的基本数据类型有哪些？",
+    "ground_truth_answer": "JSON（JavaScript Object Notation，RFC 8259）是一种轻量级、文本型、语言无关的数据交换格式。基本数据类型有六种：字符串（Unicode、双引号包围、反斜杠转义）、数字（整数或浮点数，不区分类型）、布尔值（true/false）、null、对象（无序的键值对集合，花括号包围）、数组（有序的值列表，方括号包围）。JSON 大小写敏感，字符串外的空白无意义，顶层值必须是对象或数组。"
+  },
+  {
+    "question": "MIME 的作用是什么？它如何扩展了电子邮件？",
+    "ground_truth_answer": "MIME（多用途互联网邮件扩展，RFC 2045-2049）扩展了原始 RFC 822 邮件格式，支持：(1) 非 ASCII 文本字符集（通过 charset 参数）；(2) 非文本附件（图片、音频、视频、应用程序文件）；(3) 多部分邮件正文；(4) 非 ASCII 字符集的头部信息。引入的关键头部：MIME-Version、Content-Type（指定媒体类型/子类型）、Content-Transfer-Encoding（如 base64、quoted-printable）、Content-Disposition（inline 或 attachment）、Content-ID。MIME 使用 boundary 分隔多部分邮件。"
+  }
+]

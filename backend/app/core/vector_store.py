@@ -197,6 +197,30 @@ class VectorStore:
                     ),
                 )
 
+    def scroll_all_small(self) -> list[dict]:
+        """获取所有小 chunk（用于构建 BM25 索引）。"""
+        all_chunks: list[dict] = []
+        offset: str | int | None = None
+        while True:
+            points, next_offset = self.client.scroll(
+                collection_name=SMALL_COLLECTION,
+                limit=100,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            for point in points:
+                p = point.payload or {}
+                all_chunks.append({
+                    "chunk_id": p.get("chunk_id", ""),
+                    "parent_chunk_id": p.get("parent_chunk_id", ""),
+                    "content": p.get("content", ""),
+                })
+            if next_offset is None:
+                break
+            offset = next_offset
+        return all_chunks
+
     def count_small(self) -> int:
         info = self.client.get_collection(SMALL_COLLECTION)
         return info.points_count or 0
