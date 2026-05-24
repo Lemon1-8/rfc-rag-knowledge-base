@@ -30,6 +30,15 @@ curl -X DELETE http://localhost:6333/collections/rfc_chunks_big
 cd backend && python -m scripts.run_pipeline --skip-crawl
 # 管道跑完后重建 BM25 索引
 curl -X POST http://localhost:8001/api/documents/rebuild-index
+
+# 精确补爬（按 RFC 编号增量索引，不影响已有数据）
+cd backend && python -m scripts.crawl_targeted --all-missing
+cd backend && python -m scripts.crawl_targeted --rfcs 793 8446 6749
+
+# RAGAS 质量评估
+cd backend && pip install ragas datasets
+cd backend && python -m eval.eval_ragas
+cd backend && python -m eval.eval_ragas --top-k 8
 ```
 
 后端端口固定使用 **8001**（8000 被僵尸 Python 进程占用）。`--reload` 热重载偶尔失效，代码未生效时需 `taskkill /F /IM python.exe` 强杀后重启。
@@ -99,6 +108,8 @@ BM25 索引在应用启动 `lifespan` 中自动构建，数据变更后调用 `P
 | 数据库 | `backend/app/core/database.py` | SQLite，conversations + messages 表 |
 | 混合检索 | `backend/app/retrieval/hybrid_search.py` | Dense + Sparse + RRF 融合 + Reranker 分数过滤 |
 | RAG 链 | `backend/app/retrieval/rag_chain.py` | 检索→Prompt→LLM SSE 编排，支持 history 参数 |
+| 评估 | `backend/eval/eval_ragas.py` | RAGAS 4 项指标 + TEI Embedding 适配器，结果存 `eval/results/` |
+| 补爬 | `backend/scripts/crawl_targeted.py` | 按 RFC 编号精确爬取 + 临时目录增量索引 + BM25 重建 |
 
 ## API 路由
 
@@ -117,6 +128,18 @@ BM25 索引在应用启动 `lifespan` 中自动构建，数据变更后调用 `P
 | DELETE | `/api/conversations/{id}` | 删除对话 |
 
 SSE 事件顺序：`sources → token* → conversation_id → done`，错误时发 `error`。
+
+## RAGAS 评估
+
+`backend/eval/eval_ragas.py` 分三步执行：
+
+1. **检索获取**：直接调用 `hybrid_search(query)` 拿完整 context（不经过 SSE 截断），调用 `rag_query()` 收集 LLM 答案
+2. **构建数据集**：`datasets.Dataset` 格式 `{question, answer, contexts, ground_truth}`
+3. **RAGAS 评估**：`evaluate()` 计算 4 项指标
+
+四个指标中，`faithfulness` / `context_recall` / `context_precision` 只需 LLM 评判，`answer_relevancy` 额外需要 Embedding 服务。项目中通过 `TEIEmbeddings`（继承 `BaseRagasEmbeddings`，调用 TEI `/embed` 端点）替代默认 OpenAI Embeddings，零成本完成所有指标测量。
+
+评估结果 JSON 保存在 `backend/eval/results/`（已加入 `.gitignore`）。
 
 ## 配置
 
@@ -152,3 +175,4 @@ SSE 事件顺序：`sources → token* → conversation_id → done`，错误时
 - `scroll()` 返回 `(points, next_offset)` 元组，需要 while 循环翻页取全量
 - Tailwind CSS v4 通过 `@import "tailwindcss"` 引入 CSS，`@tailwindcss/vite` 插件处理构建
 - Prompt 模板严格要求基于文档、引用标注、参数准确、不编造信息
+- RAGAS 依赖 `langchain-community`，新版（≥0.4）移除了 `chat_models.vertexai` 模块，如遇 `ModuleNotFoundError` 需在 `site-packages/langchain_community/chat_models/vertexai.py` 放置 shim 从 `langchain_google_vertexai` 导入 `ChatVertexAI`
