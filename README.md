@@ -27,6 +27,14 @@ query ─┬→ Dense (BGE-M3 → Qdrant 余弦, Top-30) ─┐
 
 **Hybrid Search = Dense + Sparse + RRF 融合。** Dense 做语义匹配，Sparse（BM25）补精确术语盲区，两路排名融合后经 Reranker 精排。
 
+## 系统架构
+
+![RFC RAG 知识库系统架构](docs/architecture.svg)
+
+React 前端通过 FastAPI 进入 RAG 检索链；查询路径结合 Dense、BM25、RRF 和 Reranker，再调用 DeepSeek 生成 SSE 流式回答。索引管道负责爬取、清洗、切片，并将向量写入 Qdrant；对话历史持久化到 SQLite。
+
+> 架构图源文件：[docs/architecture.html](docs/architecture.html)
+
 ### Small-to-Big 双层存储
 
 - **小 chunk**（≤500 字符，50 字符重叠）→ `rfc_chunks_small`（1024 维向量）→ 精确检索

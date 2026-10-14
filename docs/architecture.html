@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RFC RAG 知识库 · 系统架构</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #f5f5f5; --paper-2: #ececec;
+      --ink: #2d3142; --muted: #4f5d75; --soft: #5a6580;
+      --rule: rgba(45,49,66,0.12); --accent: #bf4520;
+      --accent-tint: rgba(191,69,32,0.08); --link: #2e5aa8;
+      --sans: 'Geist', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+      --serif: 'Instrument Serif', 'Noto Serif SC', 'Microsoft YaHei', serif;
+      --mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { background: var(--paper); color: var(--ink); font-family: var(--sans); min-height: 100vh; padding: 48px 32px; }
+    .container { max-width: 1240px; margin: 0 auto; }
+    .eyebrow { color: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; margin-bottom: 12px; }
+    h1 { font-family: var(--serif); font-size: 40px; font-weight: 400; letter-spacing: -.02em; line-height: 1.1; margin-bottom: 12px; }
+    .subtitle { color: var(--muted); font-size: 15px; line-height: 1.6; max-width: 680px; }
+    .diagram { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 8px; margin-top: 36px; overflow-x: auto; padding: 20px; }
+    svg { display: block; min-width: 1100px; width: 100%; }
+    .note { border-top: 1px solid var(--rule); color: var(--muted); font-size: 13px; line-height: 1.6; margin-top: 20px; padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <p class="eyebrow">Architecture · RFC RAG Knowledge Base</p>
+    <h1>RFC RAG 知识库系统架构</h1>
+    <p class="subtitle">React 前端通过 FastAPI 进入 RAG 检索链；Dense、BM25 与 RRF 融合后调用重排和 DeepSeek 生成答案，索引管道负责把 RFC 文档写入 Qdrant。</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 1200 680" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="architecture-title architecture-desc">
+        <title id="architecture-title">RFC RAG 知识库系统架构</title>
+        <desc id="architecture-desc">横向三层架构图：客户端的浏览器与 React 前端访问 FastAPI，应用运行时包含 RAG 检索链和索引管道，右侧连接 TEI 模型服务、DeepSeek、Qdrant 和 SQLite。</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+        </defs>
+
+        <rect width="1200" height="680" fill="#f5f5f5"/>
+
+        <!-- Zones: drawn before arrows and nodes -->
+        <rect x="32" y="112" width="260" height="440" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="324" y="112" width="460" height="440" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="816" y="112" width="352" height="440" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+
+        <rect x="120" y="116" width="84" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="162" y="125" fill="#5a6580" font-size="7" font-family="'Geist Mono','Noto Sans SC',monospace" text-anchor="middle" letter-spacing="0.14em">CLIENT</text>
+        <rect x="496" y="116" width="116" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="554" y="125" fill="#5a6580" font-size="7" font-family="'Geist Mono','Noto Sans SC',monospace" text-anchor="middle" letter-spacing="0.14em">APP RUNTIME</text>
+        <rect x="930" y="116" width="124" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="992" y="125" fill="#5a6580" font-size="7" font-family="'Geist Mono','Noto Sans SC',monospace" text-anchor="middle" letter-spacing="0.14em">DEPENDENCIES</text>
+
+        <!-- Connectors: drawn before nodes -->
+        <line x1="152" y1="280" x2="176" y2="280" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <path d="M 288,280 H 336 Q344,280 344,272 V 208 Q344,200 352,200 H 364" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <line x1="448" y1="248" x2="448" y2="300" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <path d="M 532,224 H 608 Q616,224 616,232 V 432 Q616,440 608,440 H 472 Q464,440 464,448 V 452" fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <path d="M 548,332 H 700 Q708,332 708,324 V 260 Q708,252 716,252 H 912 V 240" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 548,356 H 760 Q768,356 768,348 V 276 Q768,268 776,268 H 1076 V 240" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="548" y1="364" x2="840" y2="364" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 548,380 H 700 Q708,380 708,388 V 420 Q708,428 716,428 H 904 a8,8 0 0,1 16,0 H 1076 V 384" fill="none" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+        <path d="M 548,492 H 676 Q684,492 684,484 V 144 Q684,136 692,136 H 912 V 156" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 548,492 H 912 V 384" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- Arrow labels: opaque masks stay clear of strokes -->
+        <rect x="276" y="228" width="64" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="308" y="240" fill="#2e5aa8" font-size="8" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.06em">HTTP / SSE</text>
+        <rect x="456" y="264" width="52" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="482" y="273" fill="#bf4520" font-size="8" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.06em">ROUTE</text>
+        <rect x="620" y="312" width="56" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="648" y="321" fill="#4f5d75" font-size="8" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.06em">ADMIN</text>
+        <rect x="720" y="264" width="104" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="772" y="273" fill="#4f5d75" font-size="8" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.06em">EMBED / RERANK</text>
+        <rect x="824" y="252" width="88" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="868" y="261" fill="#4f5d75" font-size="8" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.06em">PROMPT / SSE</text>
+        <rect x="664" y="348" width="68" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="698" y="357" fill="#4f5d75" font-size="8" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.06em">DENSE + BM25</text>
+        <rect x="724" y="408" width="60" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="754" y="417" fill="#4f5d75" font-size="8" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.06em">HISTORY</text>
+        <rect x="692" y="180" width="48" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="716" y="189" fill="#4f5d75" font-size="8" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.06em">EMBED</text>
+        <rect x="844" y="452" width="56" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="872" y="461" fill="#4f5d75" font-size="8" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.06em">UPSERT</text>
+
+        <!-- Node: user -->
+        <rect x="56" y="248" width="96" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="56" y="248" width="96" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+        <rect x="64" y="256" width="32" height="12" rx="2" fill="transparent" stroke="rgba(90,101,128,0.40)" stroke-width="0.8"/>
+        <text x="80" y="265" fill="#5a6580" font-size="7" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+        <text x="104" y="284" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist','Noto Sans SC',sans-serif" text-anchor="middle">用户浏览器</text>
+        <text x="104" y="300" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">localhost</text>
+
+        <!-- Node: frontend -->
+        <rect x="176" y="228" width="112" height="104" rx="6" fill="#f5f5f5"/>
+        <rect x="176" y="228" width="112" height="104" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="184" y="236" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="198" y="245" fill="#2d3142" font-size="7" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.08em">UI</text>
+        <text x="232" y="276" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist','Noto Sans SC',sans-serif" text-anchor="middle">React 前端</text>
+        <text x="232" y="294" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">React 19 · Vite</text>
+        <text x="232" y="310" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">5173</text>
+
+        <!-- Node: API -->
+        <rect x="364" y="156" width="168" height="92" rx="6" fill="#f5f5f5"/>
+        <rect x="364" y="156" width="168" height="92" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="372" y="164" width="32" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="388" y="173" fill="#2d3142" font-size="7" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.08em">API</text>
+        <text x="448" y="196" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist','Noto Sans SC',sans-serif" text-anchor="middle">FastAPI 入口</text>
+        <text x="448" y="214" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">REST · SSE</text>
+        <text x="448" y="230" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">:8001</text>
+
+        <!-- Node: RAG focal -->
+        <rect x="364" y="300" width="184" height="96" rx="6" fill="#f5f5f5"/>
+        <rect x="364" y="300" width="184" height="96" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <rect x="372" y="308" width="40" height="12" rx="2" fill="transparent" stroke="rgba(191,69,32,0.50)" stroke-width="0.8"/>
+        <text x="392" y="317" fill="#bf4520" font-size="7" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.08em">CORE</text>
+        <text x="456" y="340" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist','Noto Sans SC',sans-serif" text-anchor="middle">RAG 检索链</text>
+        <text x="456" y="358" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">Dense + BM25 + RRF</text>
+        <text x="456" y="374" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">rerank → prompt</text>
+
+        <!-- Node: indexing pipeline -->
+        <rect x="364" y="452" width="184" height="80" rx="6" fill="#f5f5f5"/>
+        <rect x="364" y="452" width="184" height="80" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="372" y="460" width="32" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="388" y="469" fill="#2d3142" font-size="7" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.08em">JOB</text>
+        <text x="456" y="492" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist','Noto Sans SC',sans-serif" text-anchor="middle">索引管道</text>
+        <text x="456" y="510" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">crawl → clean → chunk</text>
+
+        <!-- Node: TEI -->
+        <rect x="840" y="156" width="144" height="84" rx="6" fill="#f5f5f5"/>
+        <rect x="840" y="156" width="144" height="84" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="848" y="164" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="862" y="173" fill="#5a6580" font-size="7" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.08em">ML</text>
+        <text x="912" y="196" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist','Noto Sans SC',sans-serif" text-anchor="middle">TEI 模型服务</text>
+        <text x="912" y="214" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">BGE-M3 · reranker</text>
+        <text x="912" y="230" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">8888 / 8889</text>
+
+        <!-- Node: DeepSeek -->
+        <rect x="1004" y="156" width="144" height="84" rx="6" fill="#f5f5f5"/>
+        <rect x="1004" y="156" width="144" height="84" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="1012" y="164" width="32" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="1028" y="173" fill="#5a6580" font-size="7" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.08em">LLM</text>
+        <text x="1076" y="196" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist','Noto Sans SC',sans-serif" text-anchor="middle">DeepSeek</text>
+        <text x="1076" y="214" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">deepseek-chat</text>
+        <text x="1076" y="230" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">OpenAI-compatible</text>
+
+        <!-- Node: Qdrant -->
+        <rect x="840" y="312" width="144" height="72" rx="6" fill="#f5f5f5"/>
+        <rect x="840" y="312" width="144" height="72" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="848" y="320" width="32" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="864" y="329" fill="#4f5d75" font-size="7" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.08em">VEC</text>
+        <text x="912" y="350" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist','Noto Sans SC',sans-serif" text-anchor="middle">Qdrant 向量库</text>
+        <text x="912" y="368" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">small / big chunks</text>
+
+        <!-- Node: SQLite -->
+        <rect x="1004" y="312" width="144" height="72" rx="6" fill="#f5f5f5"/>
+        <rect x="1004" y="312" width="144" height="72" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="1012" y="320" width="32" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="1028" y="329" fill="#4f5d75" font-size="7" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.08em">SQL</text>
+        <text x="1076" y="350" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist','Noto Sans SC',sans-serif" text-anchor="middle">SQLite 对话库</text>
+        <text x="1076" y="368" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">conversations.db</text>
+
+        <!-- Legend -->
+        <line x1="32" y1="584" x2="1168" y2="584" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <text x="32" y="604" fill="#4f5d75" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.18em">LEGEND</text>
+        <rect x="32" y="620" width="14" height="10" rx="2" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <text x="54" y="628" fill="#4f5d75" font-size="9" font-family="'Geist','Noto Sans SC',sans-serif">RAG 核心路径</text>
+        <rect x="160" y="620" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="182" y="628" fill="#4f5d75" font-size="9" font-family="'Geist','Noto Sans SC',sans-serif">应用组件</text>
+        <rect x="276" y="620" width="14" height="10" rx="2" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <text x="298" y="628" fill="#4f5d75" font-size="9" font-family="'Geist','Noto Sans SC',sans-serif">持久化存储</text>
+        <rect x="408" y="620" width="14" height="10" rx="2" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <text x="430" y="628" fill="#4f5d75" font-size="9" font-family="'Geist','Noto Sans SC',sans-serif">外部服务</text>
+        <line x1="548" y1="625" x2="576" y2="625" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <text x="584" y="628" fill="#4f5d75" font-size="9" font-family="'Geist','Noto Sans SC',sans-serif">请求</text>
+        <line x1="652" y1="625" x2="680" y2="625" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <text x="688" y="628" fill="#4f5d75" font-size="9" font-family="'Geist','Noto Sans SC',sans-serif">异步 / 管理路径</text>
+      </svg>
+    </div>
+    <p class="note">图中模型服务和 Qdrant 运行在项目外部依赖中；索引管道负责构建小 chunk 向量和大 chunk 主键映射，查询路径再通过 RRF 与重排得到上下文。</p>
+  </main>
+</body>
+</html>
